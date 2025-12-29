@@ -45,7 +45,6 @@ Thumbs.db
 
 # Environment files (secrets)
 .env
-.env.*
 
 # Docker volumes (local data)
 **/volumes/
