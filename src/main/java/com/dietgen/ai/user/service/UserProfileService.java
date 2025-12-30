@@ -16,6 +16,14 @@ public class UserProfileService {
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
 
+    public UserProfile getByUserId(Long userId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: id=" + userId));
+
+        return userProfileRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found for userId=" + userId));
+    }
+
     public UserProfile upsert(Long userId, CreateOrUpdateProfileRequest req) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() ->  new ResourceNotFoundException("User not found: id=" + userId));

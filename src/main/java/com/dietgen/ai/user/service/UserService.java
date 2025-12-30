@@ -1,5 +1,6 @@
 package com.dietgen.ai.user.service;
 
+import com.dietgen.ai.common.exception.ResourceNotFoundException;
 import com.dietgen.ai.user.dto.request.CreateUserRequest;
 import com.dietgen.ai.user.entity.User;
 import com.dietgen.ai.user.repository.UserRepository;
@@ -16,6 +17,11 @@ public class UserService {
 
     // For now: local encoder. Later we’ll make it a @Bean.
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    public User getById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: id=" + id));
+    }
 
     public User createUser(CreateUserRequest req) {
         if (userRepository.existsByEmail(req.email())) {
