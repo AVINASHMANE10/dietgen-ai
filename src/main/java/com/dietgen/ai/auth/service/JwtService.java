@@ -21,6 +21,7 @@ public class JwtService {
             @Value("${JWT_SECRET}") String secret,
             @Value("${JWT_EXP_MINUTES:60}") long expMinutes
     ) {
+        System.out.println("JWT_EXP_MINUTES loaded = " + expMinutes);
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expMinutes = expMinutes;
     }

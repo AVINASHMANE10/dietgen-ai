@@ -2,6 +2,7 @@ package com.dietgen.ai.common.error;
 
 import com.dietgen.ai.common.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,6 +29,8 @@ public class GlobalExceptionHandler {
                 .map(fe -> new ApiFieldError(fe.getField(), fe.getDefaultMessage()))
                 .toList();
 
+        log.warn("Validation failed: path={}, errors={}", request.getRequestURI(), fieldErrors);
+
         var body = ApiErrorResponse.of(
                 400,
                 "VALIDATION_ERROR",
@@ -37,15 +41,50 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Bad request body: path={}, message={}", request.getRequestURI(), ex.getMessage());
+
+        var body = ApiErrorResponse.of(
+                400,
+                "BAD_REQUEST",
+                "Invalid request body. Check enum values and JSON format.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Invalid argument: path={}, message={}", request.getRequestURI(), ex.getMessage());
+
+        var body = ApiErrorResponse.of(
+                400,
+                "BAD_REQUEST",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.badRequest().body(body);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(
             AccessDeniedException ex,
             HttpServletRequest request
     ) {
+        // Don’t trust ex.getMessage() here; keep it stable for clients
+        log.warn("Access denied: path={}", request.getRequestURI());
+
         var body = ApiErrorResponse.of(
                 403,
                 "FORBIDDEN",
-                ex.getMessage(),
+                "Access denied.",
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
@@ -56,6 +95,8 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException ex,
             HttpServletRequest request
     ) {
+        log.warn("Not found: path={}, message={}", request.getRequestURI(), ex.getMessage());
+
         var body = ApiErrorResponse.of(
                 404,
                 "NOT_FOUND",
@@ -70,6 +111,9 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException ex,
             HttpServletRequest request
     ) {
+        // Log exception message (and cause) for debugging; keep response generic
+        log.warn("Data integrity violation: path={}, message={}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+
         var body = ApiErrorResponse.of(
                 409,
                 "DATA_INTEGRITY_VIOLATION",
@@ -79,39 +123,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
-            IllegalArgumentException ex,
-            HttpServletRequest request
-    ) {
-        var body = ApiErrorResponse.of(
-                409,
-                "DATA_INTEGRITY_VIOLATION",
-                "Request violates a database constraint (e.g., duplicate email)."+ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiErrorResponse> handleNotReadable(
-            HttpMessageNotReadableException ex,
-            HttpServletRequest request
-    ) {
-        var body = ApiErrorResponse.of(
-                400,
-                "BAD_REQUEST",
-                "Invalid request body. Check enum values and JSON format.",
-                request.getRequestURI()
-        );
-        return ResponseEntity.badRequest().body(body);
-    }
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneric(
             Exception ex,
             HttpServletRequest request
     ) {
+        log.error("Unhandled error: path={}", request.getRequestURI(), ex);
+
         var body = ApiErrorResponse.of(
                 500,
                 "INTERNAL_SERVER_ERROR",
